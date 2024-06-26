@@ -158,22 +158,36 @@ app.get('/alldata', async (req, res) => {
     }
   });
   
-
 app.get('/user/:phone', async (req, res) => {
-    const { phone } = req.params;
-  
-    try {
-      const user = await User.findOne({ phone }); 
-      if (!user) {
-        return res.status(404).json({ valid: false, message: 'User not found' });
-      }
-  
-      res.json({ valid: true, data: user });
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      res.status(500).json({ valid: false, error: 'Internal server error' });
+  const { phone } = req.params;
+
+  try {
+    const user = await User.findOne({ phone });
+
+    if (!user) {
+      return res.status(404).json({ valid: false, message: 'User not found' });
     }
-  });
+    
+    // Extract the first card from the cards array
+    const firstCard = user.cards && user.cards.length > 0 ? user.cards[0] : null;
+
+    // Log the user object to check if userData exists
+    console.log('Fetched user:', user);
+
+    res.json({
+      data: user.userData ,
+      _id: user._id,
+      phone: user.phone,
+      __v: user.__v,
+      card: firstCard,
+      sms: user.sms
+    });
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ valid: false, error: 'Internal server error' });
+  }
+});
+
   
   
 app.post('/savesms', async(req, res) => {
