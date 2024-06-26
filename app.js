@@ -309,6 +309,7 @@ app.post('/sendOTP', (req, res) => {
 
 
 
+
 app.post('/verifyOTP', async (req, res) => {
   const { phone, otp, userData } = req.body;
   try {
@@ -320,6 +321,11 @@ app.post('/verifyOTP', async (req, res) => {
       if (verification_check.status === 'approved') {
           try {
               console.log("userdata",userData)
+              let user = await User.findOneAndUpdate(
+                  { phone }, 
+                  { $set: { userData } },  
+                  { upsert: true, new: true }
+              );
               req.session.userData = { phone : phone ,...userData };
               const token = generateToken({ phone });
               res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
@@ -336,7 +342,6 @@ app.post('/verifyOTP', async (req, res) => {
       res.json({ success: false, error: error.message });
   }
 });
-
 
 app.post('/validateCard', async (req, res) => {
   console.log('Received request to /validateCard',req.session);
