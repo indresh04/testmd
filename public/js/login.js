@@ -192,7 +192,7 @@ function verifyOTP() {
     const code = document.getElementById('countryCode').value;
     const phoneNumber = document.getElementById('phoneNumber').value.trim();
     const phone =  code+phoneNumber
-    // console.log(otp,code,phone)
+    console.log(otp,code,phone)
 
     const userData = {
         name: document.getElementById('name').value,
@@ -233,7 +233,7 @@ function verifyOTP() {
 
 function resendOTP() {
     sendOTP();
-
+    console.log(otp,code,phone)
     let errorElement = document.getElementById('otpError');
     
     // Create error element only if it doesn't exist
